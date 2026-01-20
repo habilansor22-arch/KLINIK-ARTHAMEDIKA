@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard | SIMRS Artha Medika</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .active-menu { background: #2563eb; border-radius: 8px; }
+    </style>
+</head>
+<body class="bg-gray-50 flex h-screen overflow-hidden">
+
+    <aside class="w-64 bg-slate-900 text-gray-300 flex flex-col transition-all duration-300">
+        <div class="p-6 text-white text-xl font-bold flex items-center gap-2 border-b border-slate-800">
+            <i class="fas fa-notes-medical text-blue-400"></i> SIMRS Artha
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto" id="sidebarMenu">
+            </nav>
+
+        <div class="p-4 border-t border-slate-800">
+            <button onclick="logout()" class="w-full flex items-center p-3 text-red-400 hover:bg-red-900/20 rounded-lg">
+                <i class="fas fa-power-off mr-3"></i> Keluar
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col">
+        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8">
+            <div class="flex items-center gap-4 text-gray-600">
+                <i class="fas fa-bars cursor-pointer"></i>
+                <h2 id="currentMenuTitle" class="font-semibold text-lg uppercase tracking-wider">Dashboard</h2>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="roleBadge" class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase"></span>
+                <div class="text-right">
+                    <p class="text-sm font-bold text-gray-700">User Staff</p>
+                    <p class="text-xs text-green-500 flex items-center gap-1"><span class="w-2 h-2 bg-green-500 rounded-full"></span> Online</p>
+                </div>
+            </div>
+        </header>
+
+        <section id="mainContent" class="p-8 overflow-y-auto">
+            </section>
+    </main>
+
+    <script>
+        // Database Sederhana di Browser
+let dbPasien = JSON.parse(localStorage.getItem('pasien')) || [];
+
+// Fungsi untuk Menyimpan Pasien Baru (Admin)
+function simpanPasien() {
+    const nama = document.getElementById('reg-nama').value;
+    const nik = document.getElementById('reg-nik').value;
+    const poli = document.getElementById('reg-poli').value;
+
+    if (!nama || !nik) return alert("Data harus lengkap!");
+
+    const pasienBaru = {
+        id: "RM-" + Date.now(), // Nomor RM unik berdasarkan waktu
+        nama: nama,
+        nik: nik,
+        poli: poli,
+        status: "Menunggu", // Status awal
+        tgl: new Date().toLocaleDateString()
+    };
+
+    dbPasien.push(pasienBaru);
+    localStorage.setItem('pasien', JSON.stringify(dbPasien)); // Simpan ke Memori Browser
+    alert("Pasien Berhasil Didaftarkan!");
+    renderPendaftaran(); // Refresh form
+}
+
+// Fungsi untuk Menampilkan Antrean (Dokter)
+function renderAntreanDokter() {
+    const listAntrean = dbPasien.filter(p => p.status === "Menunggu");
+    
+    let html = `<div class="grid grid-cols-1 gap-4">`;
+    listAntrean.forEach(p => {
+        html += `
+            <div class="bg-white p-4 rounded-lg shadow border-l-4 border-orange-500 flex justify-between items-center">
+                <div>
+                    <p class="font-bold text-lg">${p.nama}</p>
+                    <p class="text-sm text-gray-500">${p.id} | Poli: ${p.poli}</p>
+                </div>
+                <button onclick="periksaPasien('${p.id}')" class="bg-blue-600 text-white px-4 py-2 rounded">Periksa</button>
+            </div>
+        `;
+    });
+    html += `</div>`;
+    document.getElementById('mainContent').innerHTML = html || "<p>Tidak ada antrean hari ini.</p>";
+}
+        const role = sessionStorage.getItem('userRole') || 'admin';
+        document.getElementById('roleBadge').innerText = role;
+
+        // Definisi Menu tiap Role
+        const menus = {
+            admin: [
+                { title: 'Pendaftaran Pasien', icon: 'fa-user-plus', action: renderPendaftaran },
+                { title: 'Data Master Pasien', icon: 'fa-users', action: renderDataPasien },
+                { title: 'Antrean Loket', icon: 'fa-ticket-alt', action: renderAntrean }
+            ],
+            dokter: [
+                { title: 'Daftar Pasien Anda', icon: 'fa-stethoscope', action: renderDokterPasien },
+                { title: 'Rekam Medis (E-SOAP)', icon: 'fa-notes-medical', action: renderSOAP },
+                { title: 'Riwayat Penyakit', icon: 'fa-history', action: renderRiwayat }
+            ],
+            farmasi: [
+                { title: 'Resep Masuk', icon: 'fa-file-medical', action: renderResep },
+                { title: 'Stok Obat', icon: 'fa-pills', action: renderStok }
+            ],
+            owner: [
+                { title: 'Laporan Pendapatan', icon: 'fa-file-invoice-dollar', action: renderLaporan },
+                { title: 'Statistik Klinik', icon: 'fa-chart-pie', action: renderStatistik }
+            ]
+        };
+
+        // Fungsi Render Menu Sidebar
+        function initMenu() {
+            const menuContainer = document.getElementById('sidebarMenu');
+            menus[role].forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = "w-full flex items-center p-3 hover:bg-slate-800 transition-all duration-200 group";
+                btn.innerHTML = `<i class="fas ${item.icon} mr-3 group-hover:text-blue-400"></i> ${item.title}`;
+                btn.onclick = () => {
+                    document.getElementById('currentMenuTitle').innerText = item.title;
+                    item.action();
+                };
+                menuContainer.appendChild(btn);
+            });
+            // Jalankan menu pertama secara default
+            menus[role][0].action();
+        }
+
+        // CONTOH FUNGSI KONTEN (DETAIL)
+        function renderPendaftaran() {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 max-w-4xl mx-auto">
+                    <h3 class="text-2xl font-bold mb-6 text-gray-800">Registrasi Pasien Baru</h3>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <input type="text" placeholder="NIK (Sesuai KTP)" class="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                            <input type="text" placeholder="Nama Lengkap" class="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                            <input type="date" class="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div class="space-y-4">
+                            <select class="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option>Pilih Poli Tujuan</option>
+                                <option>Poli Umum</option>
+                                <option>Poli Gigi</option>
+                                <option>Poli KIA</option>
+                            </select>
+                            <textarea placeholder="Alamat Lengkap" class="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none h-24"></textarea>
+                        </div>
+                    </div>
+                    <button class="mt-6 bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:shadow-lg transition">Daftarkan & Cetak Antrean</button>
+                </div>
+            `;
+        }
+
+        function renderSOAP() {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="grid grid-cols-3 gap-6">
+                    <div class="col-span-1 bg-white p-4 rounded-lg shadow-sm">
+                        <h4 class="font-bold border-b mb-3">Antrean Pasien</h4>
+                        <div class="space-y-2">
+                            <div class="p-3 bg-blue-50 border-l-4 border-blue-500 rounded cursor-pointer">
+                                <p class="font-bold text-sm">Budi Santoso</p>
+                                <p class="text-xs text-gray-500">Antrean: A-01 | BPJS</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-span-2 bg-white p-6 rounded-lg shadow-sm">
+                        <h4 class="font-bold border-b mb-4 uppercase">E-Rekam Medis (SOAP)</h4>
+                        <div class="space-y-4">
+                            <textarea placeholder="Subjective (Keluhan)" class="w-full border p-3 rounded h-20"></textarea>
+                            <textarea placeholder="Objective (Tanda Vital)" class="w-full border p-3 rounded h-20"></textarea>
+                            <input type="text" placeholder="Assessment (Diagnosa/ICD-10)" class="w-full border p-3 rounded">
+                            <textarea placeholder="Plan (Terapi/Resep)" class="w-full border p-3 rounded h-20"></textarea>
+                            <button class="bg-green-600 text-white px-6 py-2 rounded font-bold">Kirim Resep ke Farmasi</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Placeholder untuk fungsi lainnya
+        function renderDataPasien() { document.getElementById('mainContent').innerHTML = "<h1>Data Seluruh Pasien Klinik</h1>"; }
+        function renderAntrean() { document.getElementById('mainContent').innerHTML = "<h1>Monitor Antrean TV</h1>"; }
+        function renderResep() { document.getElementById('mainContent').innerHTML = "<h1>Daftar Resep Menunggu Racik</h1>"; }
+        function renderLaporan() { document.getElementById('mainContent').innerHTML = "<h1>Laporan Keuangan Bulanan</h1>"; }
+        function logout() { window.location.href = 'index.html'; }
+
+        initMenu();
+    </script>
+</body>
+</html>

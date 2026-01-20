@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artha Medika Cloud | Sistem Informasi Klinik Terpadu</title>
+    <meta name="description" content="Pendaftaran online dan sistem manajemen klinik Artha Medika. Cepat, transparan, dan modern.">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; overflow-x: hidden; }
+        .marquee { display: flex; overflow: hidden; user-select: none; gap: 2rem; }
+        .marquee-content { flex-shrink: 0; display: flex; justify-content: space-around; min-width: 100%; gap: 2rem; animation: scroll 20s linear infinite; }
+        @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(calc(-100% - 2rem)); } }
+        @media print { .no-print { display: none !important; } .print-only { display: block !important; } }
+        .print-only { display: none; }
+    </style>
+</head>
+<body class="text-slate-900">
+
+    <div id="tv-monitor" class="fixed inset-0 bg-slate-950 z-[100] hidden flex flex-col p-10">
+        <div class="flex justify-between items-center mb-10">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-3xl text-white shadow-2xl shadow-blue-500/50">
+                    <i class="fas fa-hospital"></i>
+                </div>
+                <h1 class="text-white text-4xl font-black tracking-tighter uppercase">ARTHA MEDIKA TV</h1>
+            </div>
+            <div id="tv-clock" class="text-white text-4xl font-mono font-bold bg-slate-900 px-8 py-4 rounded-3xl border border-white/5 shadow-2xl">00:00:00</div>
+            <button onclick="toggleTV()" class="bg-red-500/20 text-red-500 w-14 h-14 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="tv-grid" class="grid grid-cols-1 md:grid-cols-3 gap-10 flex-grow">
+            </div>
+        <div class="mt-10 bg-blue-600 rounded-[2rem] p-6 marquee shadow-2xl">
+            <div class="marquee-content text-white text-2xl font-bold italic uppercase tracking-wider">
+                <span>Selamat Datang di Klinik Artha Medika</span>
+                <span>•</span>
+                <span>Harap Menunggu Antrean Anda Dipanggil</span>
+                <span>•</span>
+                <span>Layanan Kami Selalu Mengutamakan Pasien</span>
+                <span>•</span>
+                <span>Gunakan Masker di Area Klinik</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="auth-screen" class="no-print min-h-screen flex items-center justify-center bg-slate-900 p-6">
+        <div class="bg-white w-full max-w-lg rounded-[3.5rem] p-12 shadow-2xl">
+            <div class="text-center mb-10">
+                <div class="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-blue-200">
+                    <i class="fas fa-notes-medical text-3xl text-white"></i>
+                </div>
+                <h1 class="text-2xl font-black tracking-tight">ARTHA MEDIKA</h1>
+                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.4em] mt-2">Professional Cloud v16.5</p>
+            </div>
+
+            <div class="flex bg-slate-100 p-1.5 rounded-2xl mb-10">
+                <button onclick="switchTab('staff')" id="tab-staff" class="flex-1 py-4 text-xs font-black rounded-xl transition bg-white text-blue-600 shadow-sm">LOGIN STAFF</button>
+                <button onclick="switchTab('patient')" id="tab-patient" class="flex-1 py-4 text-xs font-black rounded-xl transition text-slate-500">DAFTAR MANDIRI</button>
+            </div>
+
+            <form id="login-form" class="space-y-4">
+                <select id="role-select" class="w-full p-5 bg-slate-50 border-none rounded-2xl font-bold text-sm outline-none appearance-none">
+                    <option value="admin">Admisi / Pendaftaran</option>
+                    <option value="perawat">Ruang Keperawatan</option>
+                    <option value="dokter">Dokter Pemeriksa</option>
+                    <option value="farmasi">Instalasi Farmasi</option>
+                    <option value="kasir">Kasir Billing</option>
+                    <option value="owner">Direktur (Owner)</option>
+                </select>
+                <input type="password" id="login-pass" class="w-full p-5 bg-slate-50 border-none rounded-2xl outline-none text-center tracking-[0.5em]" placeholder="PIN (12345)">
+                <button type="submit" class="w-full bg-blue-600 text-white p-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 active:scale-95">Masuk Sistem</button>
+                <button type="button" onclick="toggleTV()" class="w-full bg-slate-800 text-slate-400 p-4 rounded-2xl font-bold uppercase text-[10px] tracking-widest mt-4"><i class="fas fa-desktop mr-2"></i> Buka TV Antrean</button>
+            </form>
+
+            <form id="patient-form" class="space-y-4 hidden">
+                <input type="text" id="p-nama" placeholder="Nama Lengkap Pasien" class="w-full p-5 bg-slate-50 rounded-2xl outline-none font-bold border-none" required>
+                <div class="relative">
+                    <span class="absolute left-5 top-5 text-slate-400 font-bold">+62</span>
+                    <input type="number" id="p-wa" placeholder="81234567xxx" class="w-full p-5 pl-14 bg-slate-50 rounded-2xl outline-none font-bold border-none" required>
+                </div>
+                <select id="p-poli" class="w-full p-5 bg-slate-50 rounded-2xl font-black outline-none border-none">
+                    <option value="Umum">Poli Umum</option>
+                    <option value="Gigi">Poli Gigi</option>
+                    <option value="Anak">Poli Anak</option>
+                </select>
+                <button type="submit" class="w-full bg-emerald-600 text-white p-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all">Daftar Sekarang</button>
+                <p class="text-[9px] text-center text-slate-400 font-bold mt-4 uppercase tracking-widest">Data Anda Akan Langsung Masuk Ke Sistem Klinik</p>
+            </form>
+        </div>
+    </div>
+
+    <div id="main-dashboard" class="hidden no-print min-h-screen flex">
+        <aside class="w-80 bg-slate-900 text-white flex flex-col shadow-2xl">
+            <div class="p-10 border-b border-white/5 font-black text-xl flex items-center gap-3 tracking-tighter">
+                <div class="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg"><i class="fas fa-clinic-medical"></i></div>
+                ARTHA PRO
+            </div>
+            <nav id="sidebar-menu" class="flex-grow p-6 space-y-2 overflow-y-auto"></nav>
+            <div class="p-8 border-t border-white/5">
+                <button onclick="logout()" class="w-full flex items-center justify-center p-4 bg-red-500/10 text-red-400 font-black text-[10px] rounded-2xl hover:bg-red-500 hover:text-white transition-all uppercase tracking-[0.2em]">
+                    <i class="fas fa-sign-out-alt mr-3"></i> Keluar Sistem
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-grow flex flex-col bg-slate-50 overflow-hidden">
+            <header class="h-24 bg-white border-b flex items-center justify-between px-12 shadow-sm">
+                <div>
+                    <h2 id="page-title" class="font-black uppercase text-slate-400 tracking-[0.4em] text-[10px] mb-1">DASHBOARD</h2>
+                    <p id="user-display" class="text-sm font-black text-blue-600 uppercase"></p>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div id="sync-status" class="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100">
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                        <span class="text-[10px] font-black text-emerald-600 uppercase">System Online</span>
+                    </div>
+                </div>
+            </header>
+            <div id="content-area" class="p-12 overflow-y-auto flex-grow"></div>
+        </main>
+    </div>
+
+    <div id="print-area" class="print-only p-20 bg-white"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
