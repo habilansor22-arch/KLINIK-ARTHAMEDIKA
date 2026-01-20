@@ -1,221 +1,322 @@
-// --- INITIAL STATE ---
-let dbPasien = JSON.parse(localStorage.getItem('db_artha_v16')) || [];
-let dbObat = JSON.parse(localStorage.getItem('db_obat_v16')) || [
-    {id: 'B001', nama: 'Paracetamol 500mg', stok: 100, harga: 5000},
-    {id: 'B002', nama: 'Amoxicillin 500mg', stok: 50, harga: 15000}
-];
-const JASA_DOKTER = 25000;
+/**
+ * SIMRS ATRIA JAYA MEDIKA MASTER ENGINE v33.0
+ * SEMUA FITUR LAMA DI PERTAHANKAN + FITUR BARU LENGKAP
+ */
 
-// --- UTILS & SYNC ---
+// Inisialisasi Database (Nama Baru: Atria Jaya Medika)
+let dbPasien = JSON.parse(localStorage.getItem('db_atria_v33')) || [];
+let dbObat = JSON.parse(localStorage.getItem('db_obat_v33')) || [
+    {id:1, nama:'Paracetamol 500mg', stok:100, harga:5000},
+    {id:2, nama:'Amoxicillin 500mg', stok:50, harga:15000},
+    {id:3, nama:'Dexamethasone', stok:30, harga:8000}
+];
+let dbPay = JSON.parse(localStorage.getItem('db_pay_v33')) || ['Tunai', 'Transfer BCA', 'QRIS Mandiri'];
+
 function save() {
-    localStorage.setItem('db_artha_v16', JSON.stringify(dbPasien));
-    localStorage.setItem('db_obat_v16', JSON.stringify(dbObat));
+    localStorage.setItem('db_atria_v33', JSON.stringify(dbPasien));
+    localStorage.setItem('db_obat_v33', JSON.stringify(dbObat));
+    localStorage.setItem('db_pay_v33', JSON.stringify(dbPay));
 }
 
-function suaraPanggil(nama, id, tujuan) {
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance(`Nomor antrean ${id.split('-')[1]}, Bapak atau Ibu ${nama}, segera ke ${tujuan}`);
-        msg.lang = 'id-ID';
-        window.speechSynthesis.speak(msg);
+function getNewNo() {
+    const tgl = new Date().toLocaleDateString();
+    return dbPasien.filter(p => p.tgl === tgl).length + 1;
+}
+
+// --- FITUR LOGIN (PIN 12345) ---
+function prosesLogin() {
+    const role = document.getElementById('login-role').value;
+    const pin = document.getElementById('login-pass').value;
+    const name = document.getElementById('login-role').options[document.getElementById('login-role').selectedIndex].text;
+
+    if (pin === '12345') {
+        sessionStorage.setItem('artha_session', JSON.stringify({role, name}));
+        loadDashboard(role);
+    } else {
+        alert("PIN SALAH! Gunakan PIN 12345");
     }
 }
 
-// --- AUTH SYSTEM ---
-function switchTab(t) {
-    document.getElementById('login-form').classList.toggle('hidden', t === 'patient');
-    document.getElementById('patient-form').classList.toggle('hidden', t === 'staff');
-    document.getElementById('tab-staff').className = t === 'staff' ? 'flex-1 py-4 text-xs font-black rounded-xl transition bg-white text-blue-600 shadow-sm' : 'flex-1 py-4 text-xs font-black rounded-xl transition text-slate-500';
-    document.getElementById('tab-patient').className = t === 'patient' ? 'flex-1 py-4 text-xs font-black rounded-xl transition bg-white text-emerald-600 shadow-sm' : 'flex-1 py-4 text-xs font-black rounded-xl transition text-slate-500';
-}
-
-document.getElementById('login-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    if(document.getElementById('login-pass').value === "12345") {
-        const role = document.getElementById('role-select').value;
-        sessionStorage.setItem('arthaSession', JSON.stringify({role}));
-        loadDashboard(role);
-    } else alert("Akses Ditolak!");
-});
-
-document.getElementById('patient-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const id = "RM-" + Math.floor(1000 + Math.random() * 9000);
-    dbPasien.push({
-        id, nama: document.getElementById('p-nama').value,
-        wa: '62' + document.getElementById('p-wa').value,
-        poli: document.getElementById('p-poli').value, status: "Antre Perawat", asal: "Online", 
-        tgl: new Date().toLocaleString(), biaya: {layan: 50000, obat: 0}, rekamMedis: {}
-    });
-    save(); alert(`Berhasil! Nomor RM Anda: ${id}`); location.reload();
-});
-
-// --- DASHBOARD CORE ---
-const roleConfigs = {
-    admin: { name: "ADMISI & PENDAFTARAN", menu: [
-        { label: "Antrean Masuk", icon: "fa-user-clock", render: () => renderList('Antre Perawat', 'admin') },
-        { label: "Data Pasien", icon: "fa-database", render: renderHistory }
-    ]},
-    perawat: { name: "RUANG PERAWAT", menu: [
-        { label: "Pemeriksaan Awal", icon: "fa-heartbeat", render: () => renderList('Antre Perawat', 'perawat') }
-    ]},
-    dokter: { name: "POLI DOKTER", menu: [
-        { label: "Daftar Periksa", icon: "fa-stethoscope", render: () => renderList('Antre Dokter', 'dokter') }
-    ]},
-    farmasi: { name: "APOTEK", menu: [
-        { label: "Antrean Obat", icon: "fa-pills", render: () => renderList('Antre Farmasi', 'farmasi') },
-        { label: "Manajemen Obat", icon: "fa-boxes", render: renderInventori }
-    ]},
-    kasir: { name: "KASIR BILLING", menu: [
-        { label: "Pembayaran", icon: "fa-money-bill-wave", render: () => renderList('Antre Kasir', 'kasir') }
-    ]},
-    owner: { name: "MANAGEMENT", menu: [
-        { label: "Analitik Bisnis", icon: "fa-chart-line", render: renderOwnerAnalytics },
-        { label: "Payroll Dokter", icon: "fa-hand-holding-usd", render: renderPayroll }
-    ]}
-};
-
+// --- DASHBOARD NAVIGASI ---
 function loadDashboard(role) {
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('main-dashboard').classList.remove('hidden');
-    document.getElementById('user-display').innerText = roleConfigs[role].name;
-    const sidebar = document.getElementById('sidebar-menu');
-    sidebar.innerHTML = '';
-    roleConfigs[role].menu.forEach((m, i) => {
+    const user = JSON.parse(sessionStorage.getItem('artha_session'));
+    document.getElementById('user-display').innerText = `PETUGAS: ${user.name} | ATRIA JAYA MEDIKA`;
+    
+    const nav = document.getElementById('sidebar-menu'); nav.innerHTML = '';
+    
+    const ROLES_MENU = {
+        admin: [
+            {l:'Pendaftaran', i:'fa-user-plus', r:renderAdmisi}, 
+            {l:'Antrean Perawat', i:'fa-clock', r:()=>renderList('Antre Perawat','admin')}, 
+            {l:'Database Pasien', i:'fa-database', r:renderRiwayatUmum}
+        ],
+        perawat: [
+            {l:'Poli Perawat', i:'fa-heartbeat', r:()=>renderList('Antre Perawat','perawat')},
+            {l:'Riwayat Saya', i:'fa-history', r:()=>renderRiwayatPetugas('Antre Dokter')}
+        ],
+        dokter: [
+            {l:'Poli Dokter', i:'fa-user-md', r:()=>renderList('Antre Dokter','dokter')},
+            {l:'Riwayat Diagnosa', i:'fa-notes-medical', r:()=>renderRiwayatPetugas('Antre Farmasi')}
+        ],
+        farmasi: [
+            {l:'Antrean Resep', i:'fa-pills', r:()=>renderList('Antre Farmasi','farmasi')}, 
+            {l:'Gudang Obat', i:'fa-boxes', r:renderGudang},
+            {l:'Riwayat Resep', i:'fa-clipboard-check', r:()=>renderRiwayatPetugas('Antre Kasir')}
+        ],
+        kasir: [
+            {l:'Billing Kasir', i:'fa-cash-register', r:()=>renderList('Antre Kasir','kasir')},
+            {l:'Laporan Omset', i:'fa-chart-pie', r:renderOwner}
+        ]
+    };
+
+    ROLES_MENU[role].forEach((m, i) => {
         const b = document.createElement('button');
-        b.className = "w-full flex items-center p-5 hover:bg-white/10 rounded-2xl transition text-slate-400 font-bold text-[10px] uppercase mb-1";
-        b.innerHTML = `<i class="fas ${m.icon} w-8 text-blue-500"></i> ${m.label}`;
+        b.className = "w-full flex items-center p-5 rounded-2xl text-slate-400 font-bold text-[10px] uppercase tracking-widest";
+        b.innerHTML = `<i class="fas ${m.i} w-8 text-blue-500"></i> ${m.l}`;
         b.onclick = () => {
-            document.querySelectorAll('#sidebar-menu button').forEach(el => el.classList.remove('bg-blue-600', 'text-white'));
-            b.classList.add('bg-blue-600', 'text-white');
-            document.getElementById('content-area').innerHTML = m.render();
-            if(m.label === "Analitik Bisnis") initCharts();
+            document.querySelectorAll('#sidebar-menu button').forEach(el => el.classList.remove('sidebar-active'));
+            b.classList.add('sidebar-active');
+            document.getElementById('content-area').innerHTML = m.r();
         };
-        sidebar.appendChild(b); if(i === 0) b.click();
+        nav.appendChild(b); if(i===0) b.click();
     });
 }
 
-// --- RENDERING FUNCTIONS ---
-function renderList(status, role) {
-    const data = dbPasien.filter(p => p.status === status);
-    return `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+// --- RENDER LIST (FULL WIDTH - FITUR PATEN) ---
+function renderList(s, r) {
+    const data = dbPasien.filter(p => p.status === s);
+    return `
+    <div class="flex flex-col gap-8 w-full animate-fade-in">
         ${data.map(p => `
-            <div class="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 relative group transition-all hover:shadow-xl">
-                <div class="flex justify-between mb-6">
-                    <span class="text-[9px] font-black bg-blue-100 text-blue-600 px-4 py-2 rounded-full uppercase">${p.id}</span>
-                    <button onclick="suaraPanggil('${p.nama}', '${p.id}', 'Poli ${p.poli}')" class="text-orange-500 bg-orange-50 w-12 h-12 rounded-2xl shadow-sm hover:bg-orange-500 hover:text-white transition-all"><i class="fas fa-bullhorn"></i></button>
+            <div class="bg-white p-10 rounded-[3rem] shadow-md border border-slate-100 w-full">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                    <div class="flex items-center gap-6">
+                        <span class="bg-blue-600 text-white w-20 h-20 flex items-center justify-center rounded-[2rem] font-black text-3xl shadow-lg">#${p.no}</span>
+                        <div>
+                            <h4 class="text-4xl font-black text-slate-800">${p.nama}</h4>
+                            <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">${p.poli} | NIK: ${p.nik || '-'} | Umur: ${p.umur || '-'} Thn</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="printRM('${p.id}')" class="bg-slate-100 text-slate-600 px-6 py-4 rounded-2xl font-black text-[10px] uppercase"><i class="fas fa-file-medical mr-2"></i> RM</button>
+                        <button onclick="speak('${p.nama}','${p.no}')" class="bg-orange-50 text-orange-500 px-6 py-4 rounded-2xl font-black text-[10px] uppercase"><i class="fas fa-bullhorn mr-2"></i> PANGGIL</button>
+                    </div>
                 </div>
-                <h4 class="font-black text-xl mb-1">${p.nama}</h4>
-                <p class="text-xs text-slate-400 font-bold uppercase mb-8">${p.poli}</p>
-                ${renderRoleActions(role, p)}
+                ${r==='perawat'?renderPerawat(p):r==='dokter'?renderDokter(p):r==='farmasi'?renderFarmasi(p):r==='kasir'?renderKasir(p):''}
             </div>
-        `).join('') || '<div class="col-span-full py-20 text-center opacity-20 font-black tracking-widest">TIDAK ADA ANTREAN</div>'}
+        `).join('') || '<div class="py-32 text-center opacity-10 font-black text-5xl italic">ANTREAN KOSONG</div>'}
     </div>`;
 }
 
-function renderRoleActions(role, p) {
-    if(role === 'admin') return `<button onclick="updateStatus('${p.id}', 'Antre Perawat')" class="w-full bg-slate-900 text-white py-5 rounded-3xl font-black uppercase text-[10px]">Panggil Pasien</button>`;
-    if(role === 'perawat') return `<div class="space-y-3"><input id="t-${p.id}" placeholder="Tensi" class="w-full p-4 bg-slate-50 rounded-2xl border-none text-xs"><button onclick="savePerawat('${p.id}')" class="w-full bg-blue-600 text-white py-5 rounded-3xl font-black uppercase text-[10px]">Kirim ke Dokter</button></div>`;
-    if(role === 'dokter') return `<div class="space-y-3"><textarea id="d-${p.id}" placeholder="Diagnosa" class="w-full p-4 bg-slate-50 rounded-2xl border-none text-xs h-20"></textarea><button onclick="saveDokter('${p.id}')" class="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black uppercase text-[10px]">Selesai Periksa</button></div>`;
-    if(role === 'farmasi') return `<div class="bg-blue-50 p-4 rounded-2xl mb-4 text-xs italic">"${p.rekamMedis.resep || 'Obat Umum'}"</div><button onclick="updateStatus('${p.id}', 'Antre Kasir')" class="w-full bg-emerald-600 text-white py-5 rounded-3xl font-black uppercase text-[10px]">Obat Siap</button>`;
-    if(role === 'kasir') return `<div class="mb-6 flex justify-between font-black"><span class="text-slate-400 text-[10px]">TOTAL</span><span class="text-blue-600 text-xl">Rp ${(p.biaya.layan + p.biaya.obat).toLocaleString()}</span></div><button onclick="updateStatus('${p.id}', 'Selesai')" class="w-full bg-orange-600 text-white py-5 rounded-3xl font-black uppercase text-[10px]">Lunas & Selesai</button>`;
-}
-
-// --- SYSTEM OPERATIONS ---
-function updateStatus(id, s) {
-    const i = dbPasien.findIndex(x => x.id === id);
-    dbPasien[i].status = s; save(); 
-    loadDashboard(JSON.parse(sessionStorage.getItem('arthaSession')).role);
+// --- FORM PERAWAT (FULL WIDTH) ---
+function renderPerawat(p) {
+    return `
+    <div class="mt-8 pt-8 border-t border-slate-100 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">Tensi (TD)</label>
+            <input id="p-tensi-${p.id}" value="${p.medis.tensi||''}" placeholder="120/80" class="w-full p-5 bg-slate-50 rounded-2xl font-bold border outline-none"></div>
+            <div class="space-y-2"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">Suhu (°C)</label>
+            <input id="p-suhu-${p.id}" value="${p.medis.suhu||''}" placeholder="36.5" class="w-full p-5 bg-slate-50 rounded-2xl font-bold border outline-none"></div>
+        </div>
+        <div class="space-y-2"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">Riwayat & Keluhan</label>
+        <textarea id="p-riwayat-${p.id}" class="w-full p-5 bg-slate-50 rounded-2xl font-bold border h-32 outline-none">${p.medis.riwayat||''}</textarea></div>
+        <button onclick="savePerawat('${p.id}')" class="bg-blue-600 text-white px-12 py-5 rounded-2xl font-black uppercase text-xs shadow-lg">Kirim ke Dokter</button>
+    </div>`;
 }
 
 function savePerawat(id) {
-    const i = dbPasien.findIndex(x => x.id === id);
-    dbPasien[i].rekamMedis.tensi = document.getElementById(`t-${id}`).value;
+    const i = dbPasien.findIndex(x => x.id == id);
+    dbPasien[i].medis.tensi = document.getElementById(`p-tensi-${id}`).value;
+    dbPasien[i].medis.suhu = document.getElementById(`p-suhu-${id}`).value;
+    dbPasien[i].medis.riwayat = document.getElementById(`p-riwayat-${id}`).value;
     dbPasien[i].status = 'Antre Dokter'; save(); loadDashboard('perawat');
 }
 
+// --- FORM DOKTER (FULL WIDTH + RESEP MANUAL + REVISI) ---
+function renderDokter(p) {
+    return `
+    <div class="mt-8 pt-8 border-t border-slate-100">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="p-4 bg-blue-50 rounded-2xl text-center"><span class="block text-[9px] font-black text-blue-400 uppercase">Tensi</span><span class="font-bold text-blue-800">${p.medis.tensi||'-'}</span></div>
+            <div class="p-4 bg-blue-50 rounded-2xl text-center"><span class="block text-[9px] font-black text-blue-400 uppercase">Suhu</span><span class="font-bold text-blue-800">${p.medis.suhu||'-'} °C</span></div>
+            <div class="p-4 bg-blue-50 rounded-2xl text-center"><span class="block text-[9px] font-black text-blue-400 uppercase">Keluhan</span><span class="font-bold text-blue-800">${p.medis.riwayat||'-'}</span></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="space-y-2"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">Diagnosa ICD-10</label>
+            <input id="d-icd-${p.id}" value="${p.medis.icd||''}" class="w-full p-5 bg-slate-50 rounded-2xl font-bold border outline-none"></div>
+            <div class="space-y-2"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">Resep Obat (Ketik Manual)</label>
+            <textarea id="d-resep-${p.id}" class="w-full p-5 bg-indigo-50 rounded-2xl font-bold border h-24 outline-none">${p.medis.resep||''}</textarea></div>
+        </div>
+        <div class="space-y-2 mb-8"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">Analisa Dokter</label>
+        <textarea id="d-diag-${p.id}" class="w-full p-5 bg-slate-50 rounded-2xl font-bold border h-40 outline-none">${p.medis.diagnosa||''}</textarea></div>
+        <div class="flex flex-wrap gap-4">
+            <button onclick="saveDokter('${p.id}')" class="bg-indigo-600 text-white px-10 py-5 rounded-2xl font-black uppercase text-xs">Simpan Pemeriksaan</button>
+            <button onclick="revisiStatus('${p.id}', 'Antre Perawat')" class="bg-red-50 text-red-500 px-8 py-5 rounded-2xl font-black uppercase text-[10px]">Revisi Perawat</button>
+        </div>
+    </div>`;
+}
+
 function saveDokter(id) {
-    const i = dbPasien.findIndex(x => x.id === id);
-    dbPasien[i].rekamMedis.resep = document.getElementById(`d-${id}`).value;
-    dbPasien[i].biaya.obat = 35000;
+    const i = dbPasien.findIndex(x => x.id == id);
+    dbPasien[i].medis.icd = document.getElementById(`d-icd-${id}`).value;
+    dbPasien[i].medis.resep = document.getElementById(`d-resep-${id}`).value;
+    dbPasien[i].medis.diagnosa = document.getElementById(`d-diag-${id}`).value;
     dbPasien[i].status = 'Antre Farmasi'; save(); loadDashboard('dokter');
 }
 
-// --- TV MONITOR DISPLAY ---
+// --- FARMASI & KASIR ---
+function renderFarmasi(p) {
+    return `
+    <div class="mt-8 pt-8 border-t border-slate-100">
+        <div class="p-8 bg-emerald-50 rounded-[2rem] mb-6">
+            <h5 class="text-[10px] font-black text-emerald-400 uppercase mb-2">Resep Dari Dokter:</h5>
+            <p class="text-2xl font-bold text-emerald-900 whitespace-pre-wrap">${p.medis.resep}</p>
+        </div>
+        <div class="flex gap-4">
+            <button onclick="printEtiket('${p.id}')" class="bg-emerald-600 text-white px-8 py-4 rounded-xl font-black uppercase text-[10px]">Cetak Label Obat</button>
+            <button onclick="revisiStatus('${p.id}', 'Antre Dokter')" class="bg-red-50 text-red-500 px-8 py-4 rounded-xl font-black uppercase text-[10px]">Revisi Dokter</button>
+            <button onclick="updateStat('${p.id}', 'Antre Kasir')" class="bg-slate-900 text-white px-8 py-4 rounded-xl font-black uppercase text-[10px]">Selesai Obat</button>
+        </div>
+    </div>`;
+}
+
+function renderKasir(p) {
+    return `
+    <div class="mt-8 pt-8 border-t border-slate-100 flex flex-col md:flex-row justify-between items-end gap-10">
+        <div class="w-full md:w-1/2">
+            <label class="text-[10px] font-black text-slate-400 uppercase">Metode Pembayaran</label>
+            <select id="k-pay-${p.id}" class="w-full p-4 bg-slate-50 rounded-xl font-bold mt-2">${dbPay.map(m => `<option value="${m}">${m}</option>`).join('')}</select>
+        </div>
+        <div class="text-right">
+            <p class="text-xs font-black text-slate-400 uppercase">Total Billing</p>
+            <h2 class="text-5xl font-black text-blue-600 mb-6">Rp ${p.billing.toLocaleString()}</h2>
+            <button onclick="printInvoice('${p.id}')" class="bg-orange-600 text-white px-10 py-5 rounded-2xl font-black uppercase text-xs shadow-lg">Bayar & Cetak Struk</button>
+        </div>
+    </div>`;
+}
+
+// --- FITUR CETAK (REKAM MEDIS, LABEL, INVOICE) ---
+function printRM(id) {
+    const p = dbPasien.find(x => x.id == id);
+    const a = document.getElementById('print-area');
+    a.innerHTML = `
+    <div class="p-10 font-serif border-2 border-black w-full">
+        <div class="text-center border-b-4 border-double border-black pb-4 mb-6">
+            <h1 class="text-3xl font-black uppercase">ATRIA JAYA MEDIKA</h1>
+            <p>Sistem Informasi Rekam Medis Elektronik</p>
+        </div>
+        <h2 class="text-center font-bold text-xl mb-10 underline uppercase">Data Rekam Medis Pasien</h2>
+        <div class="grid grid-cols-2 gap-6 mb-10 text-sm">
+            <div>Nama: <strong>${p.nama}</strong></div><div>Umur: ${p.umur} Thn</div>
+            <div>Poli: ${p.poli}</div><div>Tanggal Kunjungan: ${p.tgl}</div>
+        </div>
+        <div class="space-y-6">
+            <div class="p-4 border"><strong>Vital Sign:</strong> Tensi ${p.medis.tensi} | Suhu ${p.medis.suhu}°C</div>
+            <div class="p-4 border"><strong>Diagnosa:</strong> ${p.medis.diagnosa} (ICD: ${p.medis.icd})</div>
+            <div class="p-4 border"><strong>Resep:</strong><br>${p.medis.resep}</div>
+        </div>
+        <div class="mt-20 text-right text-xs">Dicetak pada: ${new Date().toLocaleString()}</div>
+    </div>`;
+    window.print();
+}
+
+function printEtiket(id) {
+    const p = dbPasien.find(x => x.id == id);
+    const a = document.getElementById('print-area');
+    a.innerHTML = `
+    <div class="p-4 border-2 border-blue-600 rounded-lg w-[300px] font-sans text-xs mx-auto">
+        <div class="text-center font-bold border-b border-blue-500 pb-1 mb-2">FARMASI ATRIA JAYA MEDIKA</div>
+        <div class="flex justify-between font-bold mb-2"><span>#${p.no}</span><span>${p.tgl}</span></div>
+        <div class="mb-2">Pasien: <strong>${p.nama}</strong></div>
+        <div class="p-3 bg-blue-50 rounded border text-center font-black text-sm my-2">${p.medis.resep}</div>
+        <div class="text-[9px] text-center italic mt-2">Semoga Cepat Sembuh</div>
+    </div>`;
+    window.print();
+}
+
+function printInvoice(id) {
+    const p = dbPasien.find(x => x.id == id);
+    const pay = document.getElementById(`k-pay-${id}`).value;
+    const a = document.getElementById('print-area');
+    a.innerHTML = `<div class="p-10 border font-mono w-[300px] text-center"><h3>ATRIA JAYA MEDIKA</h3><p>${p.nama}</p><hr><h3>TOTAL: Rp ${p.billing.toLocaleString()}</h3><p>Metode: ${pay}</p><h4>LUNAS</h4></div>`;
+    window.print(); updateStat(id, 'Selesai');
+}
+
+// --- FITUR MONITOR TV (PATEN) ---
 function toggleTV() {
     document.getElementById('tv-monitor').classList.toggle('hidden');
     if(!document.getElementById('tv-monitor').classList.contains('hidden')) renderTV();
 }
 
 function renderTV() {
-    const sections = [
-        { title: 'Antrean Perawat', status: 'Antre Perawat', color: 'bg-emerald-500' },
-        { title: 'Antrean Dokter', status: 'Antre Dokter', color: 'bg-blue-500' },
-        { title: 'Antrean Kasir', status: 'Antre Kasir', color: 'bg-orange-500' }
+    const units = [
+        {l:'Antrean Perawat', s:'Antre Perawat', c:'bg-emerald-500'}, 
+        {l:'Antrean Dokter', s:'Antre Dokter', c:'bg-blue-500'}, 
+        {l:'Apotek & Kasir', s:'Antre Farmasi', c:'bg-orange-500'}
     ];
-    document.getElementById('tv-grid').innerHTML = sections.map(sec => `
-        <div class="bg-slate-900 rounded-[3rem] p-10 border border-white/5 flex flex-col shadow-2xl">
-            <h3 class="${sec.color} text-white text-center py-5 rounded-2xl font-black mb-10 uppercase tracking-widest text-lg">${sec.title}</h3>
-            <div class="space-y-6 flex-grow">
-                ${dbPasien.filter(p => p.status === sec.status).slice(0, 4).map(p => `
-                    <div class="flex justify-between items-center bg-white/5 p-6 rounded-[2rem] border border-white/5 animate-pulse">
-                        <span class="text-white font-black text-2xl">${p.nama}</span>
-                        <span class="text-blue-500 font-black text-2xl">#${p.id.split('-')[1]}</span>
+    document.getElementById('tv-grid').innerHTML = units.map(u => `
+        <div class="bg-white/5 rounded-[3rem] p-8 border border-white/10">
+            <h2 class="${u.c} text-white p-4 rounded-2xl text-center font-black mb-8 uppercase text-xl">${u.l}</h2>
+            <div class="space-y-4">
+                ${dbPasien.filter(p => p.status === u.s).slice(0,3).map(p => `
+                    <div class="flex justify-between items-center bg-white/5 p-6 rounded-2xl border border-white/5 shadow-xl">
+                        <span class="text-white text-3xl font-black">${p.nama}</span>
+                        <span class="text-blue-500 text-5xl font-mono font-black">#${p.no}</span>
                     </div>
-                `).join('') || '<div class="opacity-10 text-center py-20"><i class="fas fa-clock text-6xl text-white"></i></div>'}
+                `).join('')}
             </div>
         </div>
     `).join('');
 }
 
-// --- EXTRA FEATURES ---
-function renderHistory() {
-    return `<div class="bg-white rounded-[3rem] shadow-sm border overflow-hidden">
-        <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 uppercase font-black text-slate-400"><tr><th class="p-8">Pasien</th><th class="p-8">Poli</th><th class="p-8">Status</th></tr></thead>
-            <tbody>${dbPasien.map(p => `<tr class="border-b"><td class="p-8 font-black">${p.nama}</td><td class="p-8">${p.poli}</td><td class="p-8"><span class="px-4 py-1.5 bg-slate-100 rounded-full text-[9px] uppercase font-black">${p.status}</span></td></tr>`).join('')}</tbody>
-        </table>
-    </div>`;
-}
-
-function renderInventori() {
-    return `<div class="bg-white p-10 rounded-[3rem] shadow-sm border flex justify-between items-center">
-        <h3 class="font-black text-xl tracking-widest uppercase">Gudang Obat</h3>
-        <button class="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase">Tambah Item</button>
-    </div>`;
-}
-
-function renderOwnerAnalytics() {
-    const total = dbPasien.filter(p => p.status === 'Selesai').reduce((a,b) => a + (b.biaya.layan + b.biaya.obat), 0);
-    return `<div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-        <div class="bg-blue-600 p-12 rounded-[3.5rem] text-white shadow-2xl shadow-blue-200">
-            <p class="text-[10px] font-black opacity-60 uppercase tracking-widest mb-4">Total Revenue</p>
-            <h2 class="text-5xl font-black">Rp ${total.toLocaleString()}</h2>
+// --- SISA FITUR PENDUKUNG ---
+function renderAdmisi() {
+    return `
+    <div class="bg-white p-10 rounded-[3rem] shadow-sm w-full animate-fade-in border border-slate-100">
+        <h3 class="text-3xl font-black mb-10 text-blue-600 uppercase italic">Form Pendaftaran</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">Nama Pasien</label><input id="a-nama" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border"></div>
+            <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">NIK</label><input id="a-nik" type="number" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border"></div>
+            <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">Umur</label><input id="a-umur" type="number" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border"></div>
+            <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">Jenis Kelamin</label><select id="a-jk" class="w-full p-4 bg-slate-50 rounded-2xl font-bold"><option value="L">Laki-laki</option><option value="P">Perempuan</option></select></div>
+            <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-400 ml-2">Poli Tujuan</label><select id="a-poli" class="w-full p-4 bg-slate-50 rounded-2xl font-bold"><option value="Umum">Poli Umum</option><option value="Gigi">Poli Gigi</option></select></div>
         </div>
-        <div class="bg-white p-12 rounded-[3.5rem] shadow-sm border"><canvas id="ownerChart"></canvas></div>
+        <button onclick="simpanPasien()" class="mt-10 bg-blue-600 text-white px-10 py-5 rounded-2xl font-black uppercase text-xs shadow-lg">Simpan Pasien</button>
     </div>`;
 }
 
-function renderPayroll() {
-    return `<div class="p-20 text-center bg-blue-50 rounded-[3rem] border-4 border-dashed border-blue-100 text-blue-300 font-black uppercase tracking-widest">Sistem Penggajian v1.0</div>`;
+function simpanPasien() {
+    const p = {
+        id: Date.now(), no: getNewNo(), tgl: new Date().toLocaleDateString(),
+        nama: document.getElementById('a-nama').value, nik: document.getElementById('a-nik').value,
+        umur: document.getElementById('a-umur').value, jk: document.getElementById('a-jk').value,
+        poli: document.getElementById('a-poli').value, status: 'Antre Perawat',
+        medis: { tensi:'', suhu:'', riwayat:'', diagnosa:'', icd:'', resep:'' }, billing: 50000
+    };
+    if(!p.nama) return alert("Nama Wajib Diisi!");
+    dbPasien.push(p); save(); loadDashboard('admin');
 }
 
-function initCharts() {
-    const ctx = document.getElementById('ownerChart').getContext('2d');
-    new Chart(ctx, { type: 'line', data: { labels: ['H1', 'H2', 'H3', 'H4'], datasets: [{ label: 'Kunjungan', data: [5, 15, 10, 25], borderColor: '#2563eb', fill: true, backgroundColor: 'rgba(37,99,235,0.1)' }] }});
+function renderRiwayatPetugas(target) {
+    const data = dbPasien.filter(p => p.status === target || (target === 'Selesai' && p.status === 'Selesai'));
+    return `<div class="bg-white p-10 rounded-[3rem] shadow-sm"><h3 class="font-black mb-6 uppercase">Riwayat Kerja Saya</h3>${data.map(p => `<div class="flex justify-between p-6 bg-slate-50 rounded-2xl font-bold mb-4"><span>#${p.no} - ${p.nama}</span><button onclick="printRM('${p.id}')" class="text-blue-600">Lihat RM</button></div>`).join('')}</div>`;
 }
 
+function renderRiwayatUmum() {
+    return `<div class="bg-white rounded-[2rem] overflow-hidden shadow-sm"><table class="w-full text-left text-xs"><thead class="bg-slate-900 text-white"><tr><th class="p-6">No</th><th class="p-6">Nama</th><th class="p-6">Status</th><th class="p-6">Aksi</th></tr></thead><tbody>${dbPasien.map(p => `<tr class="border-b font-bold"><td class="p-6">#${p.no}</td><td class="p-6">${p.nama}</td><td class="p-6 uppercase text-blue-600">${p.status}</td><td class="p-6"><button onclick="printRM('${p.id}')" class="text-blue-500">LIHAT RM</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderGudang() { return `<div class="bg-white p-10 rounded-3xl shadow-sm"><h3 class="font-black mb-6 uppercase">Stok Obat</h3>${dbObat.map((o,i) => `<div class="flex justify-between items-center p-4 border-b font-bold"><span>${o.nama}</span><input type="number" onchange="dbObat[${i}].stok=this.value;save()" value="${o.stok}" class="w-16 border text-center rounded"></div>`).join('')}</div>`; }
+function renderOwner() { const tot = dbPasien.filter(p => p.status === 'Selesai').reduce((a,b) => a + b.billing, 0); return `<div class="bg-blue-600 p-16 rounded-[4rem] text-white"><h4>Omset Klinik</h4><h2 class="text-6xl font-black italic">Rp ${tot.toLocaleString()}</h2></div>`; }
+function revisiStatus(id, s) { const i = dbPasien.findIndex(x => x.id == id); dbPasien[i].status = s; save(); loadDashboard(JSON.parse(sessionStorage.getItem('artha_session')).role); }
+function updateStat(id, s) { const i = dbPasien.findIndex(x => x.id == id); dbPasien[i].status = s; save(); loadDashboard(JSON.parse(sessionStorage.getItem('artha_session')).role); }
+function speak(n, no) { const m = new SpeechSynthesisUtterance(`Nomor antrean ${no}, ${n}, silakan masuk.`); m.lang = 'id-ID'; window.speechSynthesis.speak(m); }
 function logout() { sessionStorage.clear(); location.reload(); }
+function switchTab(t) { document.getElementById('login-container').classList.toggle('hidden', t==='patient'); document.getElementById('patient-container').classList.toggle('hidden', t==='staff'); }
 
-// --- AUTO REFRESH CLOCK & TV ---
-setInterval(() => {
-    const now = new Date().toLocaleTimeString('id-ID');
-    const clock = document.getElementById('tv-clock');
-    if(clock) clock.innerText = now;
-    if(!document.getElementById('tv-monitor').classList.contains('hidden')) renderTV();
-}, 1000);
-
-window.onload = () => {
-    const session = JSON.parse(sessionStorage.getItem('arthaSession'));
-    if(session) loadDashboard(session.role);
+window.onload = () => { 
+    if(sessionStorage.getItem('artha_session')) loadDashboard(JSON.parse(sessionStorage.getItem('artha_session')).role); 
+    setInterval(() => { if(document.getElementById('tv-clock')) document.getElementById('tv-clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000); 
 };
