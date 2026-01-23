@@ -1,0 +1,19 @@
+function renderList(status, role) {
+    const db = getDB();
+    // Baris di bawah ini untuk mengecek di 'Inspect Element' (F12) apakah data ada
+    console.log("Data di DB:", db); 
+    console.log("Mencari status:", status);
+
+    const data = db.filter(p => p.status.trim() === status.trim());
+    
+    let html = `<div class="flex flex-col gap-8 w-full animate-fade-in">`;
+    
+    if (data.length === 0) {
+        return `
+        <div class="py-32 text-center">
+            <h2 class="opacity-10 font-black text-6xl italic uppercase text-slate-400">Kosong</h2>
+            <p class="text-slate-400 font-bold uppercase text-[10px]">Tidak ada pasien dengan status: ${status}</p>
+        </div>`;
+    }
+    // ... sisa kode render sama seperti sebelumnya
+}
