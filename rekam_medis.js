@@ -1,306 +1,279 @@
-/**
- * SIMRS ATRIA JAYA MEDIKA - MASTER ENGINE v2.0
- * PENGGABUNGAN TOTAL: FITUR LAMA + FITUR BARU + PASIEN LAMA
- * STATUS: FIXED SEARCH & DATA PERSISTENCE
- */
+// ==========================================
+// FITUR REKAM MEDIS TERPADU - ATRIA JAYA
+// ==========================================
+import { dbPasien, updateDatabase, save } from './app.js';
 
-// 1. INISIALISASI DATABASE
-export let dbPasien = JSON.parse(localStorage.getItem('db_atria_v35')) || [];
-export let dbObat = JSON.parse(localStorage.getItem('db_obat_v35')) || [
-    { id: 1, nama: 'Paracetamol 500mg', stok: 100 },
-    { id: 2, nama: 'Amoxicillin 500mg', stok: 50 }
-];
-
-export function updateDatabase() {
-    dbPasien = JSON.parse(localStorage.getItem('db_atria_v35')) || [];
-}
-
-export function save() {
-    localStorage.setItem('db_atria_v35', JSON.stringify(dbPasien));
-    localStorage.setItem('db_obat_v35', JSON.stringify(dbObat));
-}
-
-export function getNewNo() {
-    updateDatabase();
-    const tgl = new Date().toLocaleDateString();
-    return dbPasien.filter(p => p.tgl_kunjungan === tgl).length + 1;
-}
-
-// 2. SISTEM LOGIN (PIN 12345)
-export function prosesLogin() {
-    const role = document.getElementById('login-role').value;
-    const pin = document.getElementById('login-pass').value;
-    const name = document.getElementById('login-role').options[document.getElementById('login-role').selectedIndex].text;
-    if (pin === '12345') {
-        sessionStorage.setItem('artha_session', JSON.stringify({ role, name }));
-        loadDashboard(role);
-    } else { alert("PIN SALAH!"); }
-}
-
-// 3. FITUR DAFTAR MANDIRI
-export function simpanMandiri() {
-    const p = {
-        id: Date.now(),
-        no: getNewNo(),
-        nama: document.getElementById('p-nama-m').value,
-        nik: document.getElementById('p-nik-m').value,
-        wa: document.getElementById('p-wa-m').value,
-        umur: document.getElementById('p-umur-m').value,
-        jk: document.getElementById('p-jk-m').value,
-        poli: document.getElementById('p-poli-m').value,
-        tgl_kunjungan: new Date(document.getElementById('p-tgl-m').value).toLocaleDateString(),
-        status: 'Antre Perawat',
-        medis: [{ tgl: new Date().toLocaleDateString('id-ID'), tensi: '', suhu: '', riwayat: '', diagnosa: '', icd: '', resep: '' }],
-        billing: 50000
+// Fungsi helper untuk mendapatkan stempel waktu Indonesia yang sangat detail
+const getWaktuLengkap = () => {
+    const d = new Date();
+    const hari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][d.getDay()];
+    const tanggal = d.getDate().toString().padStart(2, '0');
+    const bulan = (d.getMonth() + 1).toString().padStart(2, '0');
+    const tahun = d.getFullYear();
+    const jam = d.getHours().toString().padStart(2, '0');
+    const menit = d.getMinutes().toString().padStart(2, '0');
+    
+    return {
+        display: `${hari}, ${tanggal}/${bulan}/${tahun} | ${jam}:${menit} WIB`,
+        tglOnly: `${tanggal}/${bulan}/${tahun}`,
+        filter: `${tahun}-${bulan}-${tanggal}` // Untuk filter input date
     };
-    if (!p.nama || !p.nik || !p.wa) return alert("Mohon lengkapi Nama, NIK, dan WhatsApp!");
-    dbPasien.push(p); save();
-    alert(`Berhasil! Nomor Antrean Anda: #${p.no}. Silakan tunggu.`);
-    location.reload();
-}
+};
 
-// =========================================================================
-// IMPORTS FOR SUB-MODULES (To resolve circular dependencies or split code)
-// =========================================================================
-import { renderCariPasienLama } from './pasien_lama.js';
-import { renderAdmisi, renderRiwayatUmum as renderDBPasien } from './sosial.js';
-import { renderRekamMedis } from './rekam_medis.js';
-
-// 4. CORE DASHBOARD & NAVIGASI
-export function loadDashboard(role) {
-    updateDatabase();
-    document.getElementById('auth-screen').classList.add('hidden');
-    document.getElementById('main-dashboard').classList.remove('hidden');
-    const user = JSON.parse(sessionStorage.getItem('artha_session'));
-    document.getElementById('user-display').innerText = `USER: ${user.name} | ATRIA JAYA MEDIKA`;
-
-    const nav = document.getElementById('sidebar-menu'); nav.innerHTML = '';
-    const menus = {
-        admin: [
-            { l: 'Pendaftaran Internal', i: 'fa-user-plus', r: renderAdmisi },
-            { l: 'Pasien Lama', i: 'fa-history', r: renderCariPasienLama },
-            { l: 'Antrean Perawat', i: 'fa-clock', r: () => renderList('Antre Perawat', 'admin') },
-            { l: 'Database Pasien', i: 'fa-database', r: renderDBPasien },
-            { l: 'Rekam Medis (RM)', i: 'fa-file-medical', r: renderRekamMedis } // Added New Module
-        ],
-        perawat: [
-            { l: 'Pemeriksaan Fisik', i: 'fa-stethoscope', r: () => renderList('Antre Perawat', 'perawat') },
-            { l: 'Riwayat Kerja Saya', i: 'fa-history', r: () => renderRiwayatPetugas('Antre Dokter') }
-        ],
-        dokter: [
-            { l: 'Diagnosa & Resep', i: 'fa-user-md', r: () => renderList('Antre Dokter', 'dokter') },
-            { l: 'Riwayat Diagnosa Saya', i: 'fa-notes-medical', r: () => renderRiwayatPetugas('Antre Farmasi') }
-        ],
-        farmasi: [
-            { l: 'Antrean Resep', i: 'fa-pills', r: () => renderList('Antre Farmasi', 'farmasi') },
-            { l: 'Riwayat Penyerahan', i: 'fa-clipboard-check', r: () => renderRiwayatPetugas('Antre Kasir') }
-        ],
-        kasir: [
-            { l: 'Billing Kasir', i: 'fa-cash-register', r: () => renderList('Antre Kasir', 'kasir') },
-            { l: 'Laporan Omset', i: 'fa-chart-line', r: renderOwner }
-        ]
-    };
-
-    menus[role].forEach((m, i) => {
-        const b = document.createElement('button');
-        b.className = "w-full flex items-center p-5 rounded-2xl text-slate-400 font-bold text-[10px] uppercase tracking-widest";
-        b.innerHTML = `<i class="fas ${m.i} w-8 text-blue-500"></i> ${m.l}`;
-        b.onclick = () => {
-            document.querySelectorAll('#sidebar-menu button').forEach(el => el.classList.remove('sidebar-active'));
-            b.classList.add('sidebar-active');
-            updateDatabase();
-            document.getElementById('content-area').innerHTML = m.r();
-        };
-        nav.appendChild(b); if (i === 0) b.click();
-    });
-}
-
-// 6. RENDER LIST & FORMS
-export function renderList(s, r) {
-    updateDatabase();
-    const data = dbPasien.filter(p => p.status === s);
-    return `<div class="flex flex-col gap-8 w-full animate-fade-in">
-        ${data.map(p => {
-        const m = p.medis[p.medis.length - 1] || p.medis; // Handle legacy object structure if needed
-        return `
-            <div class="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 w-full">
-                <div class="flex justify-between items-center mb-8">
-                    <div class="flex items-center gap-6">
-                        <span class="bg-blue-600 text-white w-20 h-20 flex items-center justify-center rounded-[2rem] font-black text-3xl">#${p.no}</span>
-                        <div>
-                            <h4 class="text-4xl font-black text-slate-800 uppercase">${p.nama}</h4>
-                            <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">${p.poli} | NIK: ${p.nik}</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <button onclick="printRM('${p.id}')" class="bg-slate-100 text-slate-600 px-6 py-4 rounded-2xl font-black text-[10px] uppercase">Rekam Medis</button>
-                        <button onclick="speak('${p.nama}','${p.no}')" class="bg-orange-50 text-orange-500 px-6 py-4 rounded-2xl font-black text-[10px] uppercase">Panggil</button>
-                    </div>
+// 1. FUNGSI RENDER TABEL UTAMA (FITUR AWAL TETAP DIJAGA)
+export function renderRekamMedis() {
+    updateDatabase(); 
+    return `
+    <div class="bg-white p-8 rounded-[3rem] shadow-xl animate-fade-in">
+        <div class="flex justify-between items-center mb-10 border-b pb-6">
+            <div class="flex items-center gap-4">
+                <img src="Logo Atria.png" alt="Logo" class="w-20 h-20 object-contain">
+                <div>
+                    <h2 class="text-2xl font-black text-slate-800 uppercase italic leading-tight">Atria Jaya Medika</h2>
+                    <p class="text-[10px] font-bold text-blue-600 tracking-[0.3em] uppercase">Digital Health Record System</p>
                 </div>
-                ${r === 'perawat' ? renderPerawat(p, m) : r === 'dokter' ? renderDokter(p, m) : r === 'farmasi' ? renderFarmasi(p, m) : r === 'kasir' ? renderKasir(p) : ''}
-            </div>`;
-    }).join('') || '<div class="py-32 text-center opacity-10 font-black text-5xl italic uppercase">Kosong</div>'}
-    </div>`;
-}
-
-function renderPerawat(p, m) {
-    return `<div class="mt-8 pt-8 border-t space-y-6">
-        <div class="grid grid-cols-2 gap-6">
-            <input id="p-tensi-${p.id}" value="${m.tensi || ''}" placeholder="Tensi (TD)" class="p-5 bg-slate-50 border rounded-2xl font-bold">
-            <input id="p-suhu-${p.id}" value="${m.suhu || ''}" placeholder="Suhu (°C)" class="p-5 bg-slate-50 border rounded-2xl font-bold">
-        </div>
-        <textarea id="p-riwayat-${p.id}" placeholder="Keluhan Pasien" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold h-24">${m.riwayat || ''}</textarea>
-        <button onclick="savePerawat('${p.id}')" class="bg-blue-600 text-white px-10 py-5 rounded-2xl font-black uppercase text-xs">Kirim Ke Dokter</button>
-    </div>`;
-}
-
-function renderDokter(p, m) {
-    return `<div class="mt-8 pt-8 border-t space-y-6">
-        <div class="grid grid-cols-2 gap-6">
-            <input id="d-icd-${p.id}" value="${m.icd || ''}" placeholder="Kode ICD-10" class="p-5 bg-slate-50 border rounded-2xl font-bold">
-            <textarea id="d-resep-${p.id}" placeholder="Resep Obat" class="p-5 bg-indigo-50 border rounded-2xl font-bold h-24">${m.resep || ''}</textarea>
-        </div>
-        <textarea id="d-diag-${p.id}" placeholder="Analisa Diagnosa Dokter" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold h-32">${m.diagnosa || ''}</textarea>
-        <button onclick="saveDokter('${p.id}')" class="bg-indigo-600 text-white px-10 py-5 rounded-2xl font-black uppercase text-xs">Selesai Periksa</button>
-    </div>`;
-}
-
-function renderFarmasi(p, m) {
-    return `<div class="mt-8 pt-8 border-t">
-        <div class="p-8 bg-emerald-50 rounded-3xl mb-6 font-bold text-emerald-800 text-2xl italic">${m.resep || 'Tidak ada resep'}</div>
-        <button onclick="updateStat('${p.id}', 'Antre Kasir')" class="bg-slate-900 text-white px-8 py-4 rounded-xl font-black text-[10px] uppercase">Selesai & Kasir</button>
-    </div>`;
-}
-
-function renderKasir(p) {
-    return `<div class="mt-8 pt-8 border-t flex justify-between items-center">
-        <h2 class="text-5xl font-black text-blue-600">Rp ${(p.billing || 0).toLocaleString()}</h2>
-        <button onclick="printInvoice('${p.id}')" class="bg-orange-600 text-white px-10 py-5 rounded-2xl font-black uppercase text-xs">Lunas & Struk</button>
-    </div>`;
-}
-
-// 7. CETAKAN & UPDATE DATA
-export function savePerawat(id) {
-    updateDatabase();
-    const i = dbPasien.findIndex(x => x.id == id);
-    let m = Array.isArray(dbPasien[i].medis) ? dbPasien[i].medis[dbPasien[i].medis.length - 1] : dbPasien[i].medis;
-    m.tensi = document.getElementById(`p-tensi-${id}`).value;
-    m.suhu = document.getElementById(`p-suhu-${id}`).value;
-    m.riwayat = document.getElementById(`p-riwayat-${id}`).value;
-    dbPasien[i].status = 'Antre Dokter';
-    save(); loadDashboard('perawat');
-}
-
-export function saveDokter(id) {
-    updateDatabase();
-    const i = dbPasien.findIndex(x => x.id == id);
-    let m = Array.isArray(dbPasien[i].medis) ? dbPasien[i].medis[dbPasien[i].medis.length - 1] : dbPasien[i].medis;
-    m.icd = document.getElementById(`d-icd-${id}`).value;
-    m.resep = document.getElementById(`d-resep-${id}`).value;
-    m.diagnosa = document.getElementById(`d-diag-${id}`).value;
-    dbPasien[i].status = 'Antre Farmasi';
-    save(); loadDashboard('dokter');
-}
-
-export function printRM(id) {
-    updateDatabase();
-    const p = dbPasien.find(x => x.id == id);
-    const m = Array.isArray(p.medis) ? p.medis[p.medis.length - 1] : p.medis;
-    const a = document.getElementById('print-area');
-    a.innerHTML = `<div class="p-10 border-4 border-black font-serif">
-        <h1 class="text-center text-2xl font-black uppercase">Atria Jaya Medika</h1><hr class="border-black my-4">
-        <h3>REKAM MEDIS PASIEN</h3>
-        <p>Nama: ${p.nama} | RM: 00-${p.no}</p>
-        <p>NIK: ${p.nik} | Tgl: ${m.tgl || new Date().toLocaleDateString()}</p><br>
-        <p><b>Pemeriksaan Fisik:</b> TD: ${m.tensi} | Suhu: ${m.suhu}</p>
-        <p><b>Keluhan:</b> ${m.riwayat}</p>
-        <p><b>Diagnosa:</b> ${m.diagnosa} (${m.icd})</p>
-        <p><b>Terapi/Obat:</b> ${m.resep}</p>
-    </div>`;
-    window.print();
-}
-
-export function updateStat(id, s) {
-    const i = dbPasien.findIndex(x => x.id == id);
-    dbPasien[i].status = s; save();
-    loadDashboard(JSON.parse(sessionStorage.getItem('artha_session')).role);
-}
-
-export function printInvoice(id) {
-    const p = dbPasien.find(x => x.id == id);
-    const a = document.getElementById('print-area');
-    a.innerHTML = `<div class="p-6 border font-mono"><h3>STRUK ATRIA JAYA</h3><p>${p.nama}</p><h3>TOTAL: Rp ${(p.billing || 0).toLocaleString()}</h3></div>`;
-    window.print(); updateStat(id, 'Selesai');
-}
-
-// 8. MONITOR TV
-export function toggleTV() {
-    document.getElementById('tv-monitor').classList.toggle('hidden');
-    if (!document.getElementById('tv-monitor').classList.contains('hidden')) renderTV();
-}
-
-export function renderTV() {
-    const u = [
-        { l: 'Antrean Perawat', s: 'Antre Perawat', c: 'bg-emerald-500' },
-        { l: 'Antrean Dokter', s: 'Antre Dokter', c: 'bg-blue-500' },
-        { l: 'Farmasi & Kasir', s: 'Antre Farmasi', c: 'bg-orange-500' }
-    ];
-    document.getElementById('tv-grid').innerHTML = u.map(x => `
-        <div class="bg-white/5 rounded-[3rem] p-8 border border-white/10">
-            <h2 class="${x.c} text-white p-4 rounded-2xl text-center font-black mb-8 uppercase">${x.l}</h2>
-            <div class="space-y-4">
-                ${dbPasien.filter(p => p.status === x.s).slice(0, 3).map(p => `
-                    <div class="flex justify-between items-center bg-white/5 p-6 rounded-2xl">
-                        <span class="text-white text-2xl font-black">${p.nama}</span>
-                        <span class="text-blue-500 text-4xl font-black">#${p.no}</span>
-                    </div>
-                `).join('')}
+            </div>
+            <div class="flex gap-3">
+                <input type="date" id="filter-tgl-rm" onchange="filterTabelRM()" 
+                    class="p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-inner text-sm">
+                
+                <input type="text" id="cari-rm" onkeyup="filterTabelRM()" placeholder="Cari Pasien..." 
+                    class="p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-blue-500 w-64 shadow-inner text-sm">
             </div>
         </div>
-    `).join('');
-}
 
-// 9. RIWAYAT & ADMISI
-function renderRiwayatPetugas(target) {
-    const data = dbPasien.filter(p => p.status === target || (target === 'Selesai' && p.status === 'Selesai'));
-    return `<div class="bg-white p-10 rounded-[3rem] shadow-sm">
-        <h3 class="font-black mb-6 uppercase">Riwayat Kerja Hari Ini</h3>
-        ${data.map(p => `<div class="flex justify-between p-6 bg-slate-50 rounded-2xl font-bold mb-4">
-            <span>#${p.no} - ${p.nama}</span>
-            <button onclick="printRM('${p.id}')" class="text-blue-600 uppercase text-[10px]">Lihat RM</button>
-        </div>`).join('') || '<p class="text-center italic opacity-20">Belum ada data.</p>'}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-separate border-spacing-y-2">
+                <thead>
+                    <tr class="text-[10px] uppercase text-slate-400 font-black tracking-widest">
+                        <th class="px-6 py-4">Waktu Kunjungan & Pasien</th>
+                        <th class="px-6 py-4">Pemeriksaan Fisik (Perawat)</th>
+                        <th class="px-6 py-4">Diagnosa & Tindakan (Dokter)</th>
+                        <th class="px-6 py-4 text-center">Opsi</th>
+                    </tr>
+                </thead>
+                <tbody id="tabel-rm-body">
+                    ${dbPasien.length === 0 ? '<tr><td colspan="4" class="p-20 text-center text-slate-300 font-bold uppercase">Belum ada data pasien</td></tr>' :
+                    renderSemuaBarisRiwayat()}
+                </tbody>
+            </table>
+        </div>
     </div>`;
 }
 
-function renderOwner() {
-    const tot = dbPasien.filter(p => p.status === 'Selesai').reduce((a, b) => a + (b.billing || 0), 0);
-    return `<div class="bg-blue-600 p-16 rounded-[4rem] text-white"><h2>Omset Hari Ini: Rp ${tot.toLocaleString()}</h2></div>`;
+// 2. FUNGSI UNTUK MERENDER SETIAP KUNJUNGAN TANPA MENIMPA
+function renderSemuaBarisRiwayat() {
+    let rows = "";
+    dbPasien.forEach(p => {
+        if (Array.isArray(p.medis)) {
+            p.medis.forEach((m, index) => {
+                rows += `
+                <tr class="bg-slate-50/50 hover:bg-white hover:shadow-md transition-all group row-rm" data-tgl="${m.tgl_raw || ''}">
+                    <td class="px-6 py-4 rounded-l-3xl border-l-4 border-blue-600">
+                        <div class="text-blue-600 font-black text-[10px] mb-1 uppercase">
+                            ${m.waktu_lengkap || 'Kunjungan Lama'}
+                        </div>
+                        <div class="font-bold uppercase text-slate-800 text-sm">${p.nama || p.nama_lengkap}</div>
+                        <div class="text-[9px] text-slate-400 font-bold italic">RM: ${p.id.toString().slice(-6)} | WA: ${p.wa || p.telepon || '-'}</div>
+                    </td>
+                    <td class="px-6 py-4 border-l border-white">
+                        <div class="text-[11px] leading-relaxed">
+                            <span class="text-slate-400 uppercase font-black text-[8px]">Vital Sign:</span> 
+                            <b>${m.tensi || '-'}</b> mmHg | <b>${m.suhu || '-'}</b>°C<br>
+                            <span class="text-blue-500 italic font-medium">"${m.riwayat || m.keluhan || 'Tidak ada keluhan'}"</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 border-l border-white">
+                        <div class="text-[11px] leading-relaxed">
+                            <div class="font-bold text-emerald-600 uppercase mb-1">${m.diagnosa || 'MENUNGGU DOKTER...'}</div>
+                            <div class="text-slate-500 font-medium bg-white/50 p-1 rounded italic text-[9px]">Tindakan: ${m.tindakan || '-'} | Obat: ${m.resep || '-'}</div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 rounded-r-3xl text-center">
+                        <div class="flex justify-center gap-2">
+                            <button onclick="bukaFormDokter('${p.id}', ${index})" title="Input Medis" class="w-9 h-9 bg-white text-blue-600 rounded-xl shadow-sm hover:bg-blue-600 hover:text-white transition-all"><i class="fas fa-edit"></i></button>
+                            <button onclick="cetakResumeMedis('${p.id}', ${index})" title="Cetak RM" class="w-9 h-9 bg-white text-emerald-600 rounded-xl shadow-sm hover:bg-emerald-600 hover:text-white transition-all"><i class="fas fa-print"></i></button>
+                            <button onclick="hapusRiwayatSpesifik('${p.id}', ${index})" title="Hapus" class="w-9 h-9 bg-white text-red-400 rounded-xl shadow-sm hover:bg-red-500 hover:text-white transition-all"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+        }
+    });
+    return rows;
 }
 
-export function speak(n, no) { const m = new SpeechSynthesisUtterance(`Antrean nomor ${no}, ${n}.`); m.lang = 'id-ID'; window.speechSynthesis.speak(m); }
-export function logout() { sessionStorage.clear(); location.reload(); }
-export function switchTab(t) {
-    document.getElementById('login-container').classList.toggle('hidden', t === 'patient');
-    document.getElementById('patient-container').classList.toggle('hidden', t === 'staff');
-    document.getElementById('tab-staff').classList.toggle('bg-white', t === 'staff');
-    document.getElementById('tab-patient').classList.toggle('bg-white', t === 'patient');
+// 3. FORM DOKTER (DENGAN IDENTIFIKASI INDEX RIWAYAT)
+export function bukaFormDokter(id, index) {
+    updateDatabase();
+    const p = dbPasien.find(x => x.id == id);
+    const m = p.medis[index];
+
+    const modal = `
+    <div id="modal-dokter" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[999] flex items-center justify-center p-6">
+        <div class="bg-white w-full max-w-2xl rounded-[3.5rem] p-10 shadow-2xl animate-pop-in">
+            <div class="flex justify-between items-center mb-8 border-b pb-6">
+                <div class="flex items-center gap-4">
+                    <img src="Logo Atria.png" class="w-12 h-12 object-contain">
+                    <div>
+                        <h3 class="text-xl font-black uppercase italic text-slate-800">Pemeriksaan Dokter</h3>
+                        <p class="text-[10px] text-blue-600 font-bold uppercase">${m.waktu_lengkap}</p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('modal-dokter').remove()" class="text-slate-300 hover:text-red-500"><i class="fas fa-times-circle text-3xl"></i></button>
+            </div>
+
+            <div class="grid grid-cols-1 gap-5">
+                <div class="p-4 bg-blue-50 rounded-3xl border border-blue-100 mb-2">
+                    <p class="text-[10px] font-black text-blue-600 uppercase mb-1">Identitas Pasien:</p>
+                    <p class="font-bold text-slate-800 uppercase">${p.nama || p.nama_lengkap} (${p.jk}/${p.umur}th)</p>
+                </div>
+                
+                <div class="space-y-1">
+                    <label class="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-widest">Diagnosa Dokter</label>
+                    <input type="text" id="d-diagnosa" value="${m.diagnosa || ''}" class="w-full p-5 bg-slate-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[10px] font-black text-emerald-600 uppercase ml-4 tracking-widest">Tindakan Medis</label>
+                    <textarea id="d-tindakan" class="w-full p-5 bg-emerald-50/50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-emerald-500 h-24">${m.tindakan || ''}</textarea>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-widest">Resep Obat</label>
+                    <input type="text" id="d-resep" value="${m.resep || ''}" class="w-full p-5 bg-slate-50 rounded-2xl font-bold border-none outline-none">
+                </div>
+            </div>
+
+            <button onclick="simpanDataDokter('${p.id}', ${index})" class="w-full mt-8 bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-xl hover:bg-blue-600 transition-all">Update Riwayat Medis</button>
+        </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', modal);
 }
 
-// 10. EXPOSE TO WINDOW (FOR HTML ONCLICK HANDLERS)
-window.prosesLogin = prosesLogin;
-window.simpanMandiri = simpanMandiri;
-window.switchTab = switchTab;
-window.toggleTV = toggleTV;
-window.logout = logout;
-window.printRM = printRM;
-window.savePerawat = savePerawat;
-window.saveDokter = saveDokter;
-window.updateStat = updateStat;
-window.printInvoice = printInvoice;
-window.speak = speak;
+// 4. LOGIKA SIMPAN & CETAK (MENGGUNAKAN INDEX AGAR DATA LAMA AMAN)
+export function simpanDataDokter(id, index) {
+    updateDatabase();
+    const pIdx = dbPasien.findIndex(x => x.id == id);
+    if (pIdx !== -1) {
+        dbPasien[pIdx].medis[index].diagnosa = document.getElementById('d-diagnosa').value;
+        dbPasien[pIdx].medis[index].tindakan = document.getElementById('d-tindakan').value;
+        dbPasien[pIdx].medis[index].resep = document.getElementById('d-resep').value;
 
-// Window onload handler
-window.onload = () => {
-    if (sessionStorage.getItem('artha_session')) loadDashboard(JSON.parse(sessionStorage.getItem('artha_session')).role);
-    setInterval(() => { if (document.getElementById('tv-clock')) document.getElementById('tv-clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
+        save();
+        document.getElementById('modal-dokter').remove();
+        document.getElementById('content-area').innerHTML = renderRekamMedis();
+        alert("Riwayat Kunjungan Pasien Berhasil Diperbarui!");
+    }
+}
+
+export function cetakResumeMedis(id, index) {
+    updateDatabase();
+    const p = dbPasien.find(x => x.id == id);
+    const m = p.medis[index];
+
+    const printWindow = window.open('', '', 'width=800,height=900');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Cetak RM - ${p.nama}</title>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
+                .header { display: flex; align-items: center; border-bottom: 4px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+                .logo { width: 80px; height: 80px; margin-right: 20px; }
+                .box { border: 1px solid #000; padding: 20px; margin-top: 20px; border-radius: 10px; }
+                table { width: 100%; border-collapse: collapse; }
+                td { padding: 10px; vertical-align: top; border-bottom: 1px solid #eee; }
+                .label { font-weight: bold; text-transform: uppercase; font-size: 10px; color: #666; }
+                .val { font-weight: bold; font-size: 14px; color: #000; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <img src="Logo Atria.png" class="logo">
+                <div>
+                    <h1 style="margin:0">ATRIA JAYA MEDIKA</h1>
+                    <p style="margin:0; font-weight: bold; color: #2563eb;">LAPORAN RESUME REKAM MEDIS DIGITAL</p>
+                    <p style="margin:0; font-size: 12px;">Waktu Kunjungan: ${m.waktu_lengkap}</p>
+                </div>
+            </div>
+            
+            <table>
+                <tr>
+                    <td width="50%">
+                        <div class="label">Identitas Pasien:</div>
+                        <div class="val">${p.nama || p.nama_lengkap}</div>
+                        <div>NIK: ${p.nik || '-'} | No. RM: RM-${p.id.toString().slice(-6)}</div>
+                        <div>JK: ${p.jk} | Umur: ${p.umur} Tahun</div>
+                    </td>
+                    <td width="50%" style="text-align: right;">
+                        <div class="label">Status Riwayat:</div>
+                        <div class="val" style="color: green;">TERVERIFIKASI SISTEM</div>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="box">
+                <div class="label" style="margin-bottom:10px; border-bottom: 2px solid #333;">I. PEMERIKSAAN FISIK (ANAMNESA)</div>
+                <table>
+                    <tr><td width="30%">Tekanan Darah</td><td>: ${m.tensi || '-'} mmHg</td></tr>
+                    <tr><td>Suhu Tubuh</td><td>: ${m.suhu || '-'} °C</td></tr>
+                    <tr><td>Keluhan Utama</td><td>: <i>"${m.riwayat || m.keluhan || '-'}"</i></td></tr>
+                </table>
+            </div>
+
+            <div class="box">
+                <div class="label" style="margin-bottom:10px; border-bottom: 2px solid #333;">II. DIAGNOSA & TINDAKAN MEDIS</div>
+                <table>
+                    <tr><td width="30%">Diagnosa Dokter</td><td>: <b style="font-size: 16px;">${m.diagnosa || '-'}</b></td></tr>
+                    <tr><td>Tindakan</td><td>: ${m.tindakan || '-'}</td></tr>
+                    <tr><td>Resep/Obat</td><td>: ${m.resep || '-'}</td></tr>
+                </table>
+            </div>
+
+            <div style="margin-top: 50px; text-align: right; font-size: 12px;">
+                <p>Dicetak secara sah oleh SIMRS Atria Jaya Medika</p>
+                <p>Tanggal Cetak: ${new Date().toLocaleString('id-ID')}</p>
+                <br><br><br>
+                <p>( __________________________ )</p>
+                <p>Tanda Tangan Dokter / Petugas</p>
+            </div>
+            <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+        </html>
+    `);
+}
+
+// 5. FITUR HAPUS RIWAYAT SPESIFIK (TIDAK MENGHAPUS SELURUH DATA PASIEN)
+window.hapusRiwayatSpesifik = function(id, index) {
+    if (confirm("Hapus riwayat kunjungan pada waktu ini saja?")) {
+        const pIdx = dbPasien.findIndex(x => x.id == id);
+        if (pIdx !== -1) {
+            dbPasien[pIdx].medis.splice(index, 1);
+            save();
+            document.getElementById('content-area').innerHTML = renderRekamMedis();
+        }
+    }
+}
+
+// 6. FILTER & PENCARIAN
+window.filterTabelRM = function () {
+    const filterNama = document.getElementById('cari-rm').value.toUpperCase();
+    const filterTgl = document.getElementById('filter-tgl-rm').value; // format YYYY-MM-DD
+    const rows = document.getElementsByClassName('row-rm');
+
+    for (let i = 0; i < rows.length; i++) {
+        const textContent = rows[i].textContent || rows[i].innerText;
+        const rowTgl = rows[i].getAttribute('data-tgl'); // YYYY-MM-DD
+
+        const matchesNama = textContent.toUpperCase().indexOf(filterNama) > -1;
+        const matchesTgl = filterTgl === "" || rowTgl === filterTgl;
+
+        rows[i].style.display = (matchesNama && matchesTgl) ? "" : "none";
+    }
 };
+
+// Pastikan semua fungsi tersedia secara global
+window.bukaFormDokter = bukaFormDokter;
+window.simpanDataDokter = simpanDataDokter;
+window.cetakResumeMedis = cetakResumeMedis;
