@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,25 +9,66 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; overflow-x: hidden; }
-        .sidebar-active { background: #2563eb !important; color: white !important; box-shadow: 0 10px 15px -3px rgba(37,99,235,0.4); }
-        @media print { .no-print { display: none !important; } .print-only { display: block !important; } }
-        .print-only { display: none; }
-        .animate-marquee { display: inline-block; animation: marquee 30s linear infinite; }
-        @keyframes marquee { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .sidebar-active {
+            background: #2563eb !important;
+            color: white !important;
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4);
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+
+            .print-only {
+                display: block !important;
+            }
+        }
+
+        .print-only {
+            display: none;
+        }
+
+        .animate-marquee {
+            display: inline-block;
+            animation: marquee 30s linear infinite;
+        }
+
+        @keyframes marquee {
+            from {
+                transform: translateX(100%);
+            }
+
+            to {
+                transform: translateX(-100%);
+            }
+        }
     </style>
 </head>
+
 <body class="text-slate-900">
 
     <div id="tv-monitor" class="fixed inset-0 bg-slate-950 z-[100] hidden flex flex-col p-6">
         <div class="flex justify-between items-center mb-10">
             <h1 class="text-white text-5xl font-black italic uppercase">Atria Jaya TV</h1>
-            <div id="tv-clock" class="text-white text-5xl font-mono bg-slate-900 px-8 py-3 rounded-3xl border border-white/10">00:00:00</div>
-            <button onclick="toggleTV()" class="bg-red-600 text-white w-14 h-14 rounded-full flex items-center justify-center"><i class="fas fa-times text-2xl"></i></button>
+            <div id="tv-clock"
+                class="text-white text-5xl font-mono bg-slate-900 px-8 py-3 rounded-3xl border border-white/10">00:00:00
+            </div>
+            <button onclick="toggleTV()"
+                class="bg-red-600 text-white w-14 h-14 rounded-full flex items-center justify-center"><i
+                    class="fas fa-times text-2xl"></i></button>
         </div>
         <div id="tv-grid" class="grid grid-cols-1 md:grid-cols-3 gap-8 flex-grow"></div>
         <div class="mt-8 bg-blue-600 rounded-3xl p-6 overflow-hidden">
-            <div class="animate-marquee whitespace-nowrap text-white text-3xl font-bold uppercase italic">Selamat Datang di Klinik Atria Jaya Medika • Melayani Dengan Sepenuh Hati •</div>
+            <div class="animate-marquee whitespace-nowrap text-white text-3xl font-bold uppercase italic">Selamat Datang
+                di Klinik Atria Jaya Medika • Melayani Dengan Sepenuh Hati •</div>
         </div>
     </div>
 
@@ -34,22 +76,30 @@
         <div class="bg-white w-full max-w-6xl rounded-[3rem] p-8 lg:p-16 flex flex-col lg:flex-row gap-12 shadow-2xl">
             <div class="lg:w-1/2 flex flex-col justify-center">
                 <div class="mb-8">
-    <img src="Logo Atria.png" alt="Logo Atria" class="w-32 h-32 object-contain">
-</div>
-                <h1 class="text-5xl lg:text-7xl font-black text-slate-900 leading-tight tracking-tighter uppercase">Atria Jaya<br>Medika</h1>
+                    <img src="Logo Atria.png" alt="Logo Atria" class="w-32 h-32 object-contain">
+                </div>
+                <h1 class="text-5xl lg:text-7xl font-black text-slate-900 leading-tight tracking-tighter uppercase">
+                    Atria Jaya<br>Medika</h1>
                 <p class="text-slate-400 mt-6 font-medium text-lg italic italic">v34.0 - Professional Clinic System</p>
-                <button onclick="toggleTV()" class="mt-10 bg-slate-100 p-5 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-600 hover:bg-blue-600 hover:text-white transition-all w-fit"><i class="fas fa-tv mr-2"></i> Monitor Antrean TV</button>
+                <button onclick="toggleTV()"
+                    class="mt-10 bg-slate-100 p-5 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-600 hover:bg-blue-600 hover:text-white transition-all w-fit"><i
+                        class="fas fa-tv mr-2"></i> Monitor Antrean TV</button>
             </div>
-            
+
             <div class="lg:w-1/2 bg-slate-50 p-8 lg:p-12 rounded-[3.5rem]">
                 <div class="flex bg-slate-200/50 p-1.5 rounded-2xl mb-8">
-                    <button onclick="switchTab('staff')" id="tab-staff" class="flex-1 py-4 font-black rounded-xl bg-white text-blue-600 shadow-sm uppercase text-[10px]">Petugas</button>
-                    <button onclick="switchTab('patient')" id="tab-patient" class="flex-1 py-4 font-black rounded-xl text-slate-400 uppercase text-[10px]">Daftar Mandiri</button>
+                    <button onclick="switchTab('staff')" id="tab-staff"
+                        class="flex-1 py-4 font-black rounded-xl bg-white text-blue-600 shadow-sm uppercase text-[10px]">Petugas</button>
+                    <button onclick="switchTab('patient')" id="tab-patient"
+                        class="flex-1 py-4 font-black rounded-xl text-slate-400 uppercase text-[10px]">Daftar
+                        Mandiri</button>
                 </div>
 
                 <div id="login-container" class="space-y-6">
-                    <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-400 ml-4">Jabatan</label>
-                        <select id="login-role" class="w-full p-5 bg-white rounded-2xl font-bold shadow-sm border-none outline-none">
+                    <div class="space-y-1"><label
+                            class="text-[10px] font-black uppercase text-slate-400 ml-4">Jabatan</label>
+                        <select id="login-role"
+                            class="w-full p-5 bg-white rounded-2xl font-bold shadow-sm border-none outline-none">
                             <option value="admin">Admisi (Pendaftaran)</option>
                             <option value="perawat">Perawat (Poli 1)</option>
                             <option value="dokter">Dokter (Poli 2)</option>
@@ -57,25 +107,44 @@
                             <option value="kasir">Kasir (Pembayaran)</option>
                         </select>
                     </div>
-                    <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-400 ml-4">PIN Akses</label>
-                        <input type="password" id="login-pass" class="w-full p-5 bg-white rounded-2xl shadow-sm outline-none text-center font-black tracking-[1em]" placeholder="•••••">
+                    <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-400 ml-4">PIN
+                            Akses</label>
+                        <input type="password" id="login-pass"
+                            class="w-full p-5 bg-white rounded-2xl shadow-sm outline-none text-center font-black tracking-[1em]"
+                            placeholder="•••••">
                     </div>
-                    <button onclick="prosesLogin()" class="w-full bg-blue-600 text-white p-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Masuk Ke Sistem</button>
+                    <button onclick="prosesLogin()"
+                        class="w-full bg-blue-600 text-white p-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Masuk
+                        Ke Sistem</button>
                 </div>
 
                 <div id="patient-container" class="hidden space-y-4">
                     <div class="grid grid-cols-1 gap-4">
-                        <input type="text" id="p-nama-m" placeholder="Nama Lengkap Pasien" class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
-                        <input type="number" id="p-nik-m" placeholder="Nomor NIK (16 Digit)" class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
-                        <input type="number" id="p-wa-m" placeholder="Nomor WhatsApp" class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
+                        <input type="text" id="p-nama-m" placeholder="Nama Lengkap Pasien"
+                            class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
+                        <input type="number" id="p-nik-m" placeholder="Nomor NIK (16 Digit)"
+                            class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
+                        <input type="number" id="p-wa-m" placeholder="Nomor WhatsApp"
+                            class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="number" id="p-umur-m" placeholder="Umur" class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
-                            <select id="p-jk-m" class="w-full p-4 rounded-xl border-none shadow-sm font-bold"><option value="L">Laki-laki</option><option value="P">Perempuan</option></select>
+                            <input type="number" id="p-umur-m" placeholder="Umur"
+                                class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
+                            <select id="p-jk-m" class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
+                                <option value="L">Laki-laki</option>
+                                <option value="P">Perempuan</option>
+                            </select>
                         </div>
-                        <select id="p-poli-m" class="w-full p-4 rounded-xl border-none shadow-sm font-bold"><option value="Umum">Poli Umum</option><option value="Gigi">Poli Gigi</option><option value="Anak">Poli Anak</option></select>
-                        <input type="date" id="p-tgl-m" class="w-full p-4 rounded-xl border-none shadow-sm font-bold" value="${new Date().toISOString().split('T')[0]}">
+                        <select id="p-poli-m" class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
+                            <option value="Umum">Poli Umum</option>
+                            <option value="Gigi">Poli Gigi</option>
+                            <option value="Anak">Poli Anak</option>
+                        </select>
+                        <input type="date" id="p-tgl-m" class="w-full p-4 rounded-xl border-none shadow-sm font-bold"
+                            value="${new Date().toISOString().split('T')[0]}">
                     </div>
-                    <button onclick="simpanMandiri()" class="w-full bg-emerald-600 text-white p-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Ambil Nomor Antrean</button>
+                    <button onclick="simpanMandiri()"
+                        class="w-full bg-emerald-600 text-white p-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Ambil
+                        Nomor Antrean</button>
                 </div>
             </div>
         </div>
@@ -83,17 +152,22 @@
 
     <div id="main-dashboard" class="hidden no-print min-h-screen flex flex-col lg:flex-row">
         <aside class="w-full lg:w-80 bg-slate-900 text-white flex flex-col shadow-2xl z-50">
-            <div class="p-8 border-b border-white/5 font-black text-2xl flex items-center gap-3 italic text-blue-500 uppercase">
+            <div
+                class="p-8 border-b border-white/5 font-black text-2xl flex items-center gap-3 italic text-blue-500 uppercase">
                 <i class="fas fa-heartbeat"></i> Atria Jaya
             </div>
             <nav id="sidebar-menu" class="flex-grow p-6 space-y-2 overflow-y-auto"></nav>
-            <div class="p-8 border-t border-white/5"><button onclick="logout()" class="w-full p-4 bg-red-500/10 text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">Keluar Sistem</button></div>
+            <div class="p-8 border-t border-white/5"><button onclick="logout()"
+                    class="w-full p-4 bg-red-500/10 text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">Keluar
+                    Sistem</button></div>
         </aside>
         <main class="flex-grow flex flex-col bg-slate-50 min-h-screen">
             <header class="h-24 bg-white border-b flex items-center justify-between px-8 lg:px-12 shadow-sm z-40">
                 <div id="user-display" class="text-sm font-black text-blue-600 uppercase tracking-widest italic"></div>
                 <div class="flex items-center gap-4">
-                    <button onclick="toggleTV()" class="p-3 bg-slate-100 rounded-xl text-slate-500 hover:bg-blue-600 hover:text-white"><i class="fas fa-tv"></i></button>
+                    <button onclick="toggleTV()"
+                        class="p-3 bg-slate-100 rounded-xl text-slate-500 hover:bg-blue-600 hover:text-white"><i
+                            class="fas fa-tv"></i></button>
                 </div>
             </header>
             <div id="content-area" class="p-6 lg:p-12 overflow-y-auto flex-grow"></div>
@@ -101,9 +175,8 @@
     </div>
 
     <div id="print-area" class="print-only p-10 bg-white"></div>
-    
-    <script src="app.js"></script>
-    <script src="master-engine.js"></script>
-    <script src="sosial.js"></script>
-    <script src="pasien_lama.js"></script> </body>
+
+    <script type="module" src="app.js"></script>
+</body>
+
 </html>

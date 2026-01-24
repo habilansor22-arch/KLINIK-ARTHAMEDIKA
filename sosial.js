@@ -3,6 +3,8 @@
  * Fitur: No. RM Otomatis, Telp Pasien & PJ, Cetak Medis Terpadu, Format Rapi.
  */
 
+import { dbPasien, updateDatabase, save, loadDashboard, getNewNo } from './app.js';
+
 // 1. HELPER FIELD (INPUT STYLING)
 function fieldSosial(label, id, value) {
     return `<div>
@@ -12,12 +14,13 @@ function fieldSosial(label, id, value) {
 }
 
 // 2. RENDER FORM ADMISI (NOMOR RM OTOMATIS BERGANTI)
-function renderAdmisi(editId = null) {
+export function renderAdmisi(editId = null) {
+    updateDatabase(); // Ensure we have latest data
     const p = editId ? dbPasien.find(x => x.id == editId) : null;
-    
+
     // LOGIKA GENERATE NOMOR RM BARU (OTOMATIS BERGANTI)
     const total = dbPasien.length + 1;
-    const rmBaru = `${Math.floor(total/10000).toString().padStart(2,'0')}-${Math.floor((total%10000)/100).toString().padStart(2,'0')}-${(total%100).toString().padStart(2,'0')}`;
+    const rmBaru = `${Math.floor(total / 10000).toString().padStart(2, '0')}-${Math.floor((total % 10000) / 100).toString().padStart(2, '0')}-${(total % 100).toString().padStart(2, '0')}`;
     const displayRM = p ? p.nik : rmBaru;
 
     return `
@@ -58,7 +61,7 @@ function renderAdmisi(editId = null) {
                 ${fieldSosial("Pendidikan", "a-pendidikan", p?.pendidikan || "")}
                 ${fieldSosial("Pekerjaan", "a-pekerjaan", p?.pekerjaan || "")}
                 ${fieldSosial("Cara Bayar", "a-bayar", p?.bayar || "")}
-                <button onclick="prosesSimpanSosial(${editId})" class="w-full bg-slate-900 text-white p-6 rounded-3xl font-black uppercase text-xs mt-4 shadow-xl hover:bg-blue-600 transition-all">
+                <button onclick="prosesSimpanSosial('${editId || ''}')" class="w-full bg-slate-900 text-white p-6 rounded-3xl font-black uppercase text-xs mt-4 shadow-xl hover:bg-blue-600 transition-all">
                     SIMPAN & CETAK REKAM MEDIS
                 </button>
             </div>
@@ -67,48 +70,49 @@ function renderAdmisi(editId = null) {
 }
 
 // 3. LOGIKA SIMPAN (DENGAN RE-GENERATE RM UNTUK KEAMANAN)
-function prosesSimpanSosial(editId = null) {
+export function prosesSimpanSosial(editId = null) {
+    updateDatabase();
     const f = (id) => document.getElementById(id).value;
-    
+
     // Pastikan nomor RM selalu yang terbaru jika pendaftaran baru
     const total = dbPasien.length + 1;
-    const rmGenerated = `${Math.floor(total/10000).toString().padStart(2,'0')}-${Math.floor((total%10000)/100).toString().padStart(2,'0')}-${(total%100).toString().padStart(2,'0')}`;
+    const rmGenerated = `${Math.floor(total / 10000).toString().padStart(2, '0')}-${Math.floor((total % 10000) / 100).toString().padStart(2, '0')}-${(total % 100).toString().padStart(2, '0')}`;
 
     const dataInp = {
-        nama: f('a-nama'), telp: f('a-telp'), ttl: f('a-ttl'), 
-        umur: f('a-umur'), jk: f('a-jk'), agama: f('a-agama'), 
+        nama: f('a-nama'), telp: f('a-telp'), ttl: f('a-ttl'),
+        umur: f('a-umur'), jk: f('a-jk'), agama: f('a-agama'),
         status_kawin: f('a-status'), pendidikan: f('a-pendidikan'),
-        pekerjaan: f('a-pekerjaan'), pj: f('a-pj-nama'), 
-        pj_telp: f('a-pj-telp'), pj_hub: f('a-pj-hub'), 
+        pekerjaan: f('a-pekerjaan'), pj: f('a-pj-nama'),
+        pj_telp: f('a-pj-telp'), pj_hub: f('a-pj-hub'),
         alamat: f('a-alamat'), bayar: f('a-bayar')
     };
 
-    if(editId) {
+    if (editId && editId !== '') {
         const i = dbPasien.findIndex(x => x.id == editId);
-        dbPasien[i] = {...dbPasien[i], ...dataInp};
+        dbPasien[i] = { ...dbPasien[i], ...dataInp };
     } else {
-        const p = { 
-            id: Date.now(), no: getNewNo(), 
-            reg: "REG" + new Date().getFullYear() + Math.floor(Math.random()*1000),
-            nik: rmGenerated, 
-            tgl_kunjungan: new Date().toLocaleDateString(), 
-            status: 'Antre Perawat', 
-            medis: {tensi:'', suhu:'', riwayat:'', diagnosa:'', icd:'', resep:''}, 
-            billing: 50000, ...dataInp 
+        const p = {
+            id: Date.now(), no: getNewNo(),
+            reg: "REG" + new Date().getFullYear() + Math.floor(Math.random() * 1000),
+            nik: rmGenerated,
+            tgl_kunjungan: new Date().toLocaleDateString(),
+            status: 'Antre Perawat',
+            medis: { tensi: '', suhu: '', riwayat: '', diagnosa: '', icd: '', resep: '' },
+            billing: 50000, ...dataInp
         };
         dbPasien.push(p);
-        cetakDataSosial(p); // Langsung print lembar terpadu
+        setTimeout(() => cetakDataSosial(p), 500);
     }
-    save(); 
-    loadDashboard('admin'); 
+    save();
+    loadDashboard('admin');
 }
 
 // 4. FORMAT CETAK (VERTICAL-ALIGN TOP & REKAM MEDIS TERPADU)
-function cetakDataSosial(p) {
+export function cetakDataSosial(p) {
     const a = document.getElementById('print-area');
     const tgl = new Date().toLocaleDateString('id-ID');
     const m = p.medis || { tensi: '-', suhu: '-', riwayat: '-', diagnosa: '-', resep: '-' };
-    
+
     a.innerHTML = `
         <div style="padding:20px; font-family:sans-serif; width:210mm; margin:auto; background:white; color:black;">
             <table style="width:100%; border-collapse: collapse; border: 2px solid black; table-layout: fixed;">
@@ -190,12 +194,13 @@ function cetakDataSosial(p) {
                 </tr>
             </table>
         </div>`;
-    
+
     setTimeout(() => { window.print(); }, 500);
 }
 
 // 5. DATABASE VIEW (UNTUK ADMIN)
-function renderRiwayatUmum() { 
+export function renderRiwayatUmum() {
+    updateDatabase();
     return `
     <div class="bg-white p-10 rounded-3xl shadow-sm">
         <h3 class="font-black mb-6 uppercase text-slate-700">Database Pasien</h3>
@@ -216,7 +221,8 @@ function renderRiwayatUmum() {
                         <td class="p-4 font-normal text-slate-500">${p.telp || '-'}</td>
                         <td class="p-4">
                             <div class="flex justify-center gap-3">
-                                <button onclick='cetakDataSosial(${JSON.stringify(p)})' class="text-green-500 hover:scale-110"><i class="fas fa-print"></i></button>
+                                <!-- Pass ID instead of object to avoid quoting issues -->
+                                <button onclick='cetakDataSosialById("${p.id}")' class="text-green-500 hover:scale-110"><i class="fas fa-print"></i></button>
                                 <button onclick="document.getElementById('content-area').innerHTML = renderAdmisi('${p.id}')" class="text-blue-500 hover:scale-110"><i class="fas fa-edit"></i></button>
                                 <button onclick="hapusPasien('${p.id}')" class="text-red-500 hover:scale-110"><i class="fas fa-trash"></i></button>
                             </div>
@@ -225,12 +231,30 @@ function renderRiwayatUmum() {
                 `).join('')}
             </tbody>
         </table>
-    </div>`; 
+    </div>`;
 }
 
-function hapusPasien(id) {
-    if(confirm("Hapus data secara permanen?")) {
-        dbPasien = dbPasien.filter(x => x.id != id);
-        save(); loadDashboard('admin');
+export function cetakDataSosialById(id) {
+    updateDatabase();
+    const p = dbPasien.find(x => x.id == id);
+    if (p) cetakDataSosial(p);
+}
+
+export function hapusPasien(id) {
+    updateDatabase();
+    if (confirm("Hapus data secara permanen?")) {
+        const idx = dbPasien.findIndex(x => x.id == id);
+        if (idx > -1) {
+            dbPasien.splice(idx, 1);
+            save();
+            loadDashboard('admin');
+        }
     }
 }
+
+
+window.prosesSimpanSosial = prosesSimpanSosial;
+window.cetakDataSosial = cetakDataSosial;
+window.cetakDataSosialById = cetakDataSosialById;
+window.hapusPasien = hapusPasien;
+window.renderAdmisi = renderAdmisi;
